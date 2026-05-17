@@ -1,0 +1,319 @@
+*git_changes.txt*   VSCode-style git side panel for Vim 9          *git-changes*
+
+Author:  see LICENSE
+License: The Unlicense — do whatever you want (see |git-changes-license|)
+Repo:    https://github.com/yourname/vim-git-changes
+
+==============================================================================
+CONTENTS                                                *git-changes-contents*
+
+  1. Introduction ................. |git-changes-intro|
+  2. Requirements ................. |git-changes-requirements|
+  3. Installation ................. |git-changes-installation|
+  4. Quick start .................. |git-changes-quickstart|
+  5. Window layout ................ |git-changes-layout|
+  6. Commands ..................... |git-changes-commands|
+  7. Mappings ..................... |git-changes-mappings|
+       File panel ................. |git-changes-mappings-files|
+       Commit panel ............... |git-changes-mappings-commit|
+  8. Configuration ................ |git-changes-config|
+  9. GitHub Copilot integration ... |git-changes-copilot|
+ 10. Status icons ................. |git-changes-icons|
+ 11. Autocommands ................. |git-changes-autocmds|
+ 12. License ...................... |git-changes-license|
+
+==============================================================================
+1. INTRODUCTION                                            *git-changes-intro*
+
+git-changes gives you a VSCode-style Source Control panel inside Vim. It
+opens as a narrow vertical sidebar on the left and shows every file that git
+reports as modified, staged, deleted, renamed, or untracked. You can:
+
+  • browse changed files and open an inline diff with a single keystroke
+  • stage and unstage individual files without leaving Vim
+  • write and submit a commit message from a dedicated buffer
+  • ask GitHub Copilot to draft the commit message for you
+
+The entire plugin is written in Vim9script and has no external dependencies
+beyond git itself (and optionally gh + curl for Copilot).
+
+==============================================================================
+2. REQUIREMENTS                                     *git-changes-requirements*
+
+  • Vim 9.0 or newer (Vim9script is required)
+  • git in PATH
+  • (optional) gh CLI authenticated with `gh auth login`
+  • (optional) a GitHub Copilot subscription (for |git-changes-copilot|)
+  • (optional) curl (for |git-changes-copilot|)
+
+Neovim is NOT supported — this plugin uses Vim9script exclusively.
+
+==============================================================================
+3. INSTALLATION                                      *git-changes-installation*
+
+Native packages (recommended): >
+  mkdir -p ~/.vim/pack/plugins/start
+  git clone https://github.com/yourname/vim-git-changes \
+      ~/.vim/pack/plugins/start/vim-git-changes
+  vim -u NONE -c 'helptags ~/.vim/pack/plugins/start/vim-git-changes/doc' -c q
+<
+vim-plug: >
+  Plug 'yourname/vim-git-changes'
+<
+Local path (this repo): >
+  Plug '~/path/to/vim-git-changes'
+<
+After installation run `:helptags ALL` once so that `:help git-changes` works.
+
+==============================================================================
+4. QUICK START                                        *git-changes-quickstart*
+
+Open the panel from any buffer that is inside a git repository: >
+  :GitChanges
+<
+Or use the default mapping: >
+  <leader>gs
+<
+The panel opens on the left. Use the keys listed in |git-changes-mappings| to
+navigate, stage files, and commit. Run `:GitChanges` again (or press `q` in
+the panel) to close it.
+
+==============================================================================
+5. WINDOW LAYOUT                                          *git-changes-layout*
+
+When the panel is open, the screen looks like this: >
+
+  ┌─────────────────────┬──────────────────────────────────────┐
+  │  GIT CHANGES        │                                      │
+  │  ────────────────── │                                      │
+  │  STAGED (1)         │                                      │
+  │  ✓ M  src/foo.js    │         diff view                    │
+  │                     │         (filetype=diff)              │
+  │  CHANGES (2)        │                                      │
+  │  · M  src/bar.js    │                                      │
+  │  · ?  src/new.js    │                                      │
+  │  ────────────────── │                                      │
+  │  <CR> diff  s stage │                                      │
+  ├─────────────────────┤                                      │
+  │  COMMIT MESSAGE     │                                      │
+  │  (write here…)      │                                      │
+  └─────────────────────┴──────────────────────────────────────┘
+<
+Left column — top: file list panel (filetype `gitchangesfiles`)
+Left column — bottom: commit message panel (filetype `gitcommit`)
+Right: your normal editing area, replaced by the diff buffer when you open one
+
+The diff buffer is named `__GitDiff__` and is read-only. It reuses the same
+buffer each time so only one diff is ever visible at once.
+
+==============================================================================
+6. COMMANDS                                              *git-changes-commands*
+
+                                                              *:GitChanges*
+:GitChanges
+  Toggle the git-changes panel. Opens it if closed; closes it if open.
+  Automatically detects the git root of the currently active buffer (or
+  falls back to `getcwd()`). Prints a warning if no git repository is found.
+
+                                                        *:GitChangesRefresh*
+:GitChangesRefresh
+  Re-run `git status` and redraw the file list in place. Useful if you ran
+  git commands in a terminal and want the panel to catch up without closing
+  and reopening it. This is also called automatically on |BufWritePost| and
+  |ShellCmdPost| while the panel is open.
+
+==============================================================================
+7. MAPPINGS                                              *git-changes-mappings*
+
+All mappings are buffer-local — they only apply inside the git-changes panel
+windows and do not interfere with your global key bindings.
+
+------------------------------------------------------------------------------
+7.1 FILE PANEL MAPPINGS                           *git-changes-mappings-files*
+
+The file panel is the top section of the sidebar listing changed files.
+
+  Key             Action ~
+  <CR>            Open the diff for the file under the cursor. The diff is
+                  shown in the right-hand window (or a new split if none
+                  exists). Focus returns to the file panel automatically.
+  <2-LeftMouse>   Same as <CR> (double-click support).
+  s               Stage the file under the cursor (`git add`). Refreshes
+                  the list immediately.
+  u               Unstage the file under the cursor (`git restore --staged`).
+                  Refreshes the list immediately.
+  r               Refresh the file list (same as |:GitChangesRefresh|).
+  cc              Move the cursor to the commit message panel and enter
+                  insert mode at the end of the last line.
+  q               Close the entire git-changes panel (both windows).
+  ?               Print a short keybinding reference to the command line.
+
+------------------------------------------------------------------------------
+7.2 COMMIT PANEL MAPPINGS                        *git-changes-mappings-commit*
+
+The commit panel is the bottom section of the sidebar. Write your commit
+message here as you would in a normal `COMMIT_EDITMSG` file. Lines that start
+with `#` are treated as comments and are stripped before committing. Leading
+and trailing blank lines are also stripped.
+
+  Key             Action ~
+  <C-CR>          Commit using the message in this buffer. Works in both
+  (normal+insert) normal and insert mode. Strips comments and blank lines,
+                  writes the result to a temp file, and runs:
+                    git commit -F <tempfile>
+                  On success the buffer is cleared and the file list
+                  refreshes. On failure the git error is echoed.
+  <C-p>           Ask GitHub Copilot to generate a commit message and paste
+  (normal+insert) it into this buffer. See |git-changes-copilot|.
+  q               Return focus to the file panel (normal mode only).
+
+Global mapping (set in plugin/git_changes.vim): ~
+
+  <leader>gs      Toggle the panel from any buffer. This mapping is only
+                  created if nothing else is already mapped to
+                  <Plug>(GitChangesToggle). Override it in your vimrc: >
+                    nmap <leader>gc <Plug>(GitChangesToggle)
+<
+  Note: <Plug>(GitChangesToggle) is declared but the plugin also installs
+  the <leader>gs fallback directly. To suppress the fallback entirely, map
+  <Plug>(GitChangesToggle) to something before the plugin loads.
+
+==============================================================================
+8. CONFIGURATION                                          *git-changes-config*
+
+All options are global variables (set them in your vimrc).
+
+                                                       *g:git_changes_width*
+g:git_changes_width (default: 42)
+  Width in columns of the sidebar (file list + commit panel combined). >
+    let g:git_changes_width = 50
+<
+                                               *g:git_changes_commit_height*
+g:git_changes_commit_height (default: 8)
+  Height in lines of the commit message panel at the bottom of the sidebar. >
+    let g:git_changes_commit_height = 10
+<
+Colour customisation ~
+
+The file list uses the `gitchangesfiles` filetype. You can override any of
+the highlight groups defined in `syntax/gitchangesfiles.vim`: >
+
+  highlight GitChangesStagedFile   guifg=#98c379
+  highlight GitChangesUnstagedFile guifg=#e5c07b
+  highlight GitChangesStatusAdd    guifg=#98c379 gui=bold
+  highlight GitChangesStatusMod    guifg=#e5c07b gui=bold
+  highlight GitChangesStatusDel    guifg=#e06c75 gui=bold
+<
+Available highlight groups: >
+
+  GitChangesHeader         "GIT CHANGES" title line
+  GitChangesDivider        separator lines (────)
+  GitChangesSectionStaged  "STAGED (n)" section heading
+  GitChangesSectionChanges "CHANGES (n)" section heading
+  GitChangesHint           hint line at the bottom of the list
+  GitChangesStagedFile     staged file rows (✓ …)
+  GitChangesUnstagedFile   unstaged / untracked file rows (· …)
+  GitChangesStatusAdd      A (added) status letter
+  GitChangesStatusMod      M (modified) status letter
+  GitChangesStatusDel      D (deleted) status letter
+  GitChangesStatusRen      R (renamed) status letter
+  GitChangesStatusUnk      ? (untracked) status letter
+<
+==============================================================================
+9. GITHUB COPILOT INTEGRATION                            *git-changes-copilot*
+
+Pressing <C-p> in the commit panel attempts to generate a commit message
+using the GitHub Copilot chat API. The flow is:
+
+  1. Collect `git diff --staged` (falls back to `git diff` if nothing is
+     staged yet).
+  2. Truncate the diff to the first 300 lines to keep the payload small.
+  3. Call `gh api copilot_internal/v2/token -q .token` to obtain an
+     ephemeral bearer token. This requires:
+       • gh CLI installed and authenticated (`gh auth login`)
+       • An active GitHub Copilot subscription on that account
+  4. POST to https://api.githubcopilot.com/chat/completions via curl with
+     a prompt that asks for a short, imperative-mood commit message.
+  5. Parse the JSON response and paste the message into the commit buffer,
+     then enter insert mode so you can edit it before committing.
+
+If any step fails (gh not found, no subscription, curl error, bad JSON) the
+plugin echoes a warning and leaves the commit buffer unchanged — it never
+aborts silently.
+
+The Copilot API endpoint and header used: >
+  POST https://api.githubcopilot.com/chat/completions
+  Authorization: Bearer <ephemeral-token>
+  Content-Type: application/json
+  Copilot-Integration-Id: vscode-chat
+<
+Model: `gpt-4o`, max_tokens: 100, temperature: 0.2.
+
+Troubleshooting: >
+  # Check gh is authenticated
+  gh auth status
+
+  # Check you have a Copilot subscription
+  gh api copilot_internal/v2/token -q .token
+<
+If the second command returns a token, Copilot integration will work.
+
+==============================================================================
+10. STATUS ICONS                                          *git-changes-icons*
+
+The two-character status code from `git status --porcelain=v1` is mapped to a
+single icon shown in the file list:
+
+  Icon   Meaning ~
+  M      Modified
+  A      Added (new file tracked by git)
+  D      Deleted
+  R      Renamed
+  C      Copied
+  !      Unmerged (conflict)
+  ?      Untracked (not yet known to git)
+  ·      Fallback for any other code
+
+A file can appear twice — once under STAGED and once under CHANGES — if it
+has both staged and unstaged modifications (e.g. you staged part of a file).
+
+==============================================================================
+11. AUTOCOMMANDS                                         *git-changes-autocmds*
+
+While the panel is open, git-changes installs one autocommand group:
+
+  augroup GitChangesAuto ~
+    autocmd BufWritePost,ShellCmdPost * git_changes#Refresh()
+  augroup END ~
+
+This triggers a refresh every time you save a file or a shell command
+completes (`:!`), keeping the panel in sync automatically. The group is
+removed when the panel is closed.
+
+==============================================================================
+12. LICENSE                                              *git-changes-license*
+
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute
+this software, either in source code form or as a compiled binary, for any
+purpose, commercial or non-commercial, and by any means.
+
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
+this software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
