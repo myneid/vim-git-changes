@@ -52,7 +52,8 @@ def Open()
   execute 'vertical resize ' .. get(g:, 'git_changes_width', 42)
 
   # ── commit panel below files ──────────────────────────────────────────────
-  noautocmd execute 'belowright ' .. get(g:, 'git_changes_commit_height', 8) .. 'new'
+  noautocmd belowright new
+  execute 'resize ' .. get(g:, 'git_changes_commit_height', 8)
   s.commit_winid = win_getid()
   s.commit_bufnr = bufnr()
   SetupCommitBuffer()
