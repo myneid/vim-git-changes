@@ -91,10 +91,12 @@ def SetupCommitBuffer()
   setlocal nonumber norelativenumber signcolumn=no
   setlocal wrap winfixwidth winfixheight textwidth=72
   setlocal filetype=gitcommit
-  setlocal statusline=\ COMMIT\ MESSAGE\ \ \ <C-CR>\ commit\ \ <C-p>\ copilot
+  setlocal statusline=\ COMMIT\ MESSAGE\ \ \ <CR>/<C-s>\ commit\ \ <C-p>\ copilot
 
-  nnoremap <buffer><nowait> <C-CR> <ScriptCmd>DoCommit()<CR>
-  inoremap <buffer><nowait> <C-CR> <Esc><ScriptCmd>DoCommit()<CR>
+  # <CR> in normal mode and <C-s> in both modes — <C-CR> doesn't survive terminals
+  nnoremap <buffer><nowait> <CR>   <ScriptCmd>DoCommit()<CR>
+  nnoremap <buffer><nowait> <C-s>  <ScriptCmd>DoCommit()<CR>
+  inoremap <buffer><nowait> <C-s>  <Esc><ScriptCmd>DoCommit()<CR>
   nnoremap <buffer><nowait> <C-p>  <ScriptCmd>CopilotMessage()<CR>
   inoremap <buffer><nowait> <C-p>  <Esc><ScriptCmd>CopilotMessage()<CR>
   nnoremap <buffer><nowait> <Tab>  <ScriptCmd>win_gotoid(files_winid)<CR>
@@ -110,7 +112,9 @@ def SetupFilesBuffer()
   nnoremap <buffer><nowait> <CR>          <ScriptCmd>OpenSelectedDiff()<CR>
   nnoremap <buffer><nowait> <2-LeftMouse> <ScriptCmd>OpenSelectedDiff()<CR>
   nnoremap <buffer><nowait> s             <ScriptCmd>StageSelected()<CR>
+  nnoremap <buffer><nowait> S             <ScriptCmd>StageAll()<CR>
   nnoremap <buffer><nowait> u             <ScriptCmd>UnstageSelected()<CR>
+  nnoremap <buffer><nowait> U             <ScriptCmd>UnstageAll()<CR>
   nnoremap <buffer><nowait> r             <ScriptCmd>Refresh()<CR>
   nnoremap <buffer><nowait> cc            <ScriptCmd>FocusCommit()<CR>
   nnoremap <buffer><nowait> <Tab>         <ScriptCmd>FocusCommit()<CR>
@@ -194,9 +198,10 @@ def RenderFileList()
   lines->add('')
   lines->add('  ' .. repeat('─', 36))
   lines->add('  <CR>  open diff')
-  lines->add('  s     stage       u  unstage')
-  lines->add('  r     refresh     q  close')
-  lines->add('  <Tab> commit msg  ?  help')
+  lines->add('  s  stage file    S  stage all')
+  lines->add('  u  unstage file  U  unstage all')
+  lines->add('  r  refresh       q  close')
+  lines->add('  <Tab>  commit    ?  help')
 
   setbufvar(files_bufnr, '&modifiable', 1)
   setbufline(files_bufnr, 1, lines)
@@ -329,6 +334,14 @@ def DoCommit()
     return
   endif
 
+  # Auto-stage everything if nothing is staged yet
+  var has_staged = trim(system(
+    'git -C ' .. shellescape(git_root) .. ' diff --cached --name-only 2>/dev/null'
+  )) != ''
+  if !has_staged
+    system('git -C ' .. shellescape(git_root) .. ' add -A')
+  endif
+
   var tmp = tempname()
   writefile(lines, tmp)
   var out = system('git -C ' .. shellescape(git_root) .. ' commit -F ' .. shellescape(tmp))
@@ -342,6 +355,16 @@ def DoCommit()
   echo 'git-changes: committed!'
   setbufline(commit_bufnr, 1, [''])
   deletebufline(commit_bufnr, 2, '$')
+  Refresh()
+enddef
+
+def StageAll()
+  system('git -C ' .. shellescape(git_root) .. ' add -A')
+  Refresh()
+enddef
+
+def UnstageAll()
+  system('git -C ' .. shellescape(git_root) .. ' restore --staged -- .')
   Refresh()
 enddef
 
@@ -426,16 +449,22 @@ def ShowHelp()
     '─────────────────────────────────────────',
     'File list:',
     '  <CR> / click   open diff for file',
-    '  s              stage file (git add)',
+    '  s              stage file',
+    '  S              stage ALL files',
     '  u              unstage file',
+    '  U              unstage ALL files',
     '  r              refresh list',
-    '  <Tab> / cc     jump to commit message',
+    '  <Tab>          go to commit message',
     '  q              close panel',
     '  ?              this help',
     '',
     'Commit panel:',
-    '  <C-p>          generate message via Copilot',
-    '  <C-CR>         commit staged changes',
+    '  <CR>           commit  (normal mode)',
+    '  <C-s>          commit  (normal or insert mode)',
+    '  <C-p>          Copilot: generate message',
     '  <Tab> / q      back to file list',
+    '',
+    'Note: if nothing is staged, commit auto-stages',
+    'all changes before committing.',
   ], "\n")
 enddef
