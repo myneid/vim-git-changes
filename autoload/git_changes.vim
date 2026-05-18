@@ -227,7 +227,8 @@ enddef
 def ShowDiff(f: dict<string>)
   # find first window that isn't one of our panel windows
   var target: number = -1
-  for wid in win_list()
+  for info in getwininfo()
+    var wid: number = info.winid
     if wid != files_winid && wid != commit_winid
       target = wid
       break
@@ -358,8 +359,8 @@ def CopilotMessage()
 
   redraw | echo 'git-changes: asking Copilot...'
 
-  # Step 1 — get an ephemeral bearer token via gh CLI; echo the error if it fails
-  var token = trim(system('gh api copilot_internal/v2/token -q .token 2>&1'))
+  # Step 1 — get the gh auth token (works for all account types)
+  var token = trim(system('gh auth token 2>&1'))
   if v:shell_error != 0
     echohl ErrorMsg | echo 'git-changes (copilot): ' .. token | echohl None
     return
@@ -378,23 +379,29 @@ def CopilotMessage()
 
   var tmp = tempname()
   writefile([payload], tmp)
+  # Use copilot-cli integration headers so the request is treated as a CLI call
   var resp = system(
-    'curl -sf -X POST https://api.githubcopilot.com/chat/completions'
+    'curl -s -X POST https://api.githubcopilot.com/chat/completions'
     .. ' -H ' .. shellescape('Authorization: Bearer ' .. token)
     .. ' -H "Content-Type: application/json"'
-    .. ' -H "Copilot-Integration-Id: vscode-chat"'
-    .. ' -d @' .. shellescape(tmp) .. ' 2>&1'
+    .. ' -H "Copilot-Integration-Id: copilot-cli"'
+    .. ' -H "editor-version: gh-copilot/1.0.0"'
+    .. ' -d @' .. shellescape(tmp)
   )
   delete(tmp)
 
-  if v:shell_error != 0
-    echohl ErrorMsg | echo 'git-changes (copilot): ' .. trim(resp) | echohl None
+  if trim(resp) == ''
+    echohl ErrorMsg | echo 'git-changes (copilot): no response — check network' | echohl None
     return
   endif
 
-  # Step 3 — parse and paste the message
+  # Step 3 — parse and paste the message; surface any API-level error
   try
     var parsed = json_decode(resp)
+    if type(parsed) == v:t_dict && has_key(parsed, 'message')
+      echohl ErrorMsg | echo 'git-changes (copilot): ' .. parsed.message | echohl None
+      return
+    endif
     var msg = trim(parsed.choices[0].message.content)
     if msg == ''
       echohl WarningMsg | echo 'git-changes (copilot): empty response' | echohl None
@@ -407,7 +414,7 @@ def CopilotMessage()
     setbufline(commit_bufnr, 1, split(msg, "\n"))
     startinsert!
   catch
-    echohl ErrorMsg | echo 'git-changes (copilot): ' .. resp[: 160] | echohl None
+    echohl ErrorMsg | echo 'git-changes (copilot): ' .. resp[: 200] | echohl None
   endtry
 enddef
 
