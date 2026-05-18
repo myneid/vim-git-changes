@@ -353,9 +353,7 @@ def DoCommit()
   endif
 
   echo 'git-changes: committed!'
-  setbufline(commit_bufnr, 1, [''])
-  deletebufline(commit_bufnr, 2, '$')
-  Refresh()
+  Close()
 enddef
 
 def StageAll()
