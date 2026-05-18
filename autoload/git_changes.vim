@@ -347,44 +347,31 @@ enddef
 # ── copilot commit message ────────────────────────────────────────────────────
 
 def CopilotMessage()
-  echo 'git-changes: generating commit message via Copilot...'
-
   var diff = system('git -C ' .. shellescape(git_root) .. ' diff --staged 2>/dev/null')
   if trim(diff) == ''
     diff = system('git -C ' .. shellescape(git_root) .. ' diff 2>/dev/null')
   endif
   if trim(diff) == ''
-    echohl WarningMsg | echo 'git-changes: nothing to diff' | echohl None
+    echohl WarningMsg | echo 'git-changes (copilot): nothing to diff' | echohl None
     return
   endif
 
-  var msg = TryCopilotAPI(diff)
-  if msg == ''
-    echohl WarningMsg | echo 'git-changes: Copilot unavailable (needs gh CLI + Copilot subscription)' | echohl None
+  redraw | echo 'git-changes: asking Copilot...'
+
+  # Step 1 — get an ephemeral bearer token via gh CLI; echo the error if it fails
+  var token = trim(system('gh api copilot_internal/v2/token -q .token 2>&1'))
+  if v:shell_error != 0
+    echohl ErrorMsg | echo 'git-changes (copilot): ' .. token | echohl None
     return
   endif
 
-  if win_id2win(commit_winid) == 0
-    return
-  endif
-  win_gotoid(commit_winid)
-  setbufline(commit_bufnr, 1, split(msg, "\n"))
-  startinsert!
-enddef
-
-def TryCopilotAPI(diff: string): string
-  var token = trim(system('gh api copilot_internal/v2/token -q .token 2>/dev/null'))
-  if v:shell_error != 0 || token == ''
-    return ''
-  endif
-
+  # Step 2 — call the Copilot chat completions endpoint
   var short_diff = split(diff, "\n")[: 300]->join("\n")
-  var prompt = "Write a concise git commit message (imperative mood, max 72 chars subject line)."
-    .. " Reply with ONLY the commit message, no explanation.\n\nDiff:\n" .. short_diff
-
   var payload = json_encode({
     model: 'gpt-4o',
-    messages: [{role: 'user', content: prompt}],
+    messages: [{role: 'user', content:
+      "Write a concise git commit message (imperative mood, max 72 chars subject line)."
+      .. " Reply with ONLY the commit message, no explanation.\n\nDiff:\n" .. short_diff}],
     max_tokens: 100,
     temperature: 0.2,
   })
@@ -396,19 +383,31 @@ def TryCopilotAPI(diff: string): string
     .. ' -H ' .. shellescape('Authorization: Bearer ' .. token)
     .. ' -H "Content-Type: application/json"'
     .. ' -H "Copilot-Integration-Id: vscode-chat"'
-    .. ' -d @' .. shellescape(tmp)
+    .. ' -d @' .. shellescape(tmp) .. ' 2>&1'
   )
   delete(tmp)
 
-  if v:shell_error != 0 || resp == ''
-    return ''
+  if v:shell_error != 0
+    echohl ErrorMsg | echo 'git-changes (copilot): ' .. trim(resp) | echohl None
+    return
   endif
 
+  # Step 3 — parse and paste the message
   try
     var parsed = json_decode(resp)
-    return trim(parsed.choices[0].message.content)
+    var msg = trim(parsed.choices[0].message.content)
+    if msg == ''
+      echohl WarningMsg | echo 'git-changes (copilot): empty response' | echohl None
+      return
+    endif
+    if win_id2win(commit_winid) == 0
+      return
+    endif
+    win_gotoid(commit_winid)
+    setbufline(commit_bufnr, 1, split(msg, "\n"))
+    startinsert!
   catch
-    return ''
+    echohl ErrorMsg | echo 'git-changes (copilot): ' .. resp[: 160] | echohl None
   endtry
 enddef
 
