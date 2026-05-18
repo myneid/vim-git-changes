@@ -45,19 +45,21 @@ def Open()
   var sidebar_w = get(g:, 'git_changes_width', 42)
   var commit_h  = get(g:, 'git_changes_commit_height', 8)
 
-  # ── commit panel at top of sidebar ───────────────────────────────────────
+  # ── file list: full-height left column ───────────────────────────────────
+  # Create files panel first so the vertical resize only affects column width.
   noautocmd topleft vnew
   execute 'vertical resize ' .. sidebar_w
+  files_winid = win_getid()
+  files_bufnr = bufnr()
+  SetupFilesBuffer()
+
+  # ── commit panel: horizontal split above files ────────────────────────────
+  # aboveleft new splits within the left column only — no global height change.
+  noautocmd aboveleft new
   execute 'resize ' .. commit_h
   commit_winid = win_getid()
   commit_bufnr = bufnr()
   SetupCommitBuffer()
-
-  # ── file list below commit ────────────────────────────────────────────────
-  noautocmd belowright new
-  files_winid = win_getid()
-  files_bufnr = bufnr()
-  SetupFilesBuffer()
 
   win_gotoid(files_winid)
   changed_files = ParseStatus(root)
