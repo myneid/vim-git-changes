@@ -84,23 +84,25 @@ the panel) to close it.
 When the panel is open, the screen looks like this: >
 
   ┌─────────────────────┬──────────────────────────────────────┐
+  │  COMMIT MESSAGE     │                                      │
+  │  (write here…)      │         diff view                    │
+  ├─────────────────────┤         (filetype=diff)              │
   │  GIT CHANGES        │                                      │
   │  ────────────────── │                                      │
   │  STAGED (1)         │                                      │
-  │  ✓ M  src/foo.js    │         diff view                    │
-  │                     │         (filetype=diff)              │
+  │  ✓ M  src/foo.js    │                                      │
+  │                     │                                      │
   │  CHANGES (2)        │                                      │
   │  · M  src/bar.js    │                                      │
   │  · ?  src/new.js    │                                      │
   │  ────────────────── │                                      │
-  │  <CR> diff  s stage │                                      │
-  ├─────────────────────┤                                      │
-  │  COMMIT MESSAGE     │                                      │
-  │  (write here…)      │                                      │
+  │  <CR>  open diff    │                                      │
+  │  s  stage  u  uns.. │                                      │
+  │  <Tab> commit msg   │                                      │
   └─────────────────────┴──────────────────────────────────────┘
 <
-Left column — top: file list panel (filetype `gitchangesfiles`)
-Left column — bottom: commit message panel (filetype `gitcommit`)
+Left column — top: commit message panel (filetype `gitcommit`)
+Left column — bottom: file list panel (filetype `gitchangesfiles`)
 Right: your normal editing area, replaced by the diff buffer when you open one
 
 The diff buffer is named `__GitDiff__` and is read-only. It reuses the same
@@ -143,8 +145,8 @@ The file panel is the top section of the sidebar listing changed files.
   u               Unstage the file under the cursor (`git restore --staged`).
                   Refreshes the list immediately.
   r               Refresh the file list (same as |:GitChangesRefresh|).
-  cc              Move the cursor to the commit message panel and enter
-                  insert mode at the end of the last line.
+  <Tab>           Move the cursor to the commit message panel and enter
+  cc              insert mode at the end of the last line.
   q               Close the entire git-changes panel (both windows).
   ?               Print a short keybinding reference to the command line.
 
@@ -165,7 +167,8 @@ and trailing blank lines are also stripped.
                   refreshes. On failure the git error is echoed.
   <C-p>           Ask GitHub Copilot to generate a commit message and paste
   (normal+insert) it into this buffer. See |git-changes-copilot|.
-  q               Return focus to the file panel (normal mode only).
+  <Tab>           Return focus to the file panel (normal mode only).
+  q               Same as <Tab> — back to the file list.
 
 Global mapping (set in plugin/git_changes.vim): ~
 
