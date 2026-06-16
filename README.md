@@ -27,7 +27,7 @@ Vim9script with no external dependencies beyond `git` itself.
 
 - **Vim 9.0+** (Vim9script — Neovim is not supported)
 - `git` in `$PATH`
-- *(optional)* `gh` CLI authenticated with `gh auth login`, for AI commit messages
+- *(optional)* `gh` CLI authenticated with `gh auth login`, for pull requests and AI messages
 - *(optional)* `curl` for the Copilot API call
 
 ## Installation
@@ -91,9 +91,60 @@ committing, matching the `COMMIT_EDITMSG` convention.
 | `u` | Unstage file under cursor (`git restore --staged`) |
 | `U` | Unstage **all** staged files |
 | `<Tab>` / `cc` | Jump to the commit message panel |
+| `P` | Open the pull request creation panel |
 | `r` | Refresh the list |
 | `q` | Close the panel |
 | `?` | Print keybinding reference |
+
+---
+
+## Pull requests
+
+Press `P` in the file list (or run `:GitPullRequest` from any buffer inside the repo) to open the PR creation panel.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PR TITLE+BODY   <CR>/<C-s> create PR   q cancel                        │
+│                                                                          │
+│  My feature title                                                        │
+│                                                                          │
+│  - First commit subject                                                  │
+│  - Second commit subject                                                 │
+│                                                                          │
+│  # ──── FILES IN THIS PR (read-only below this line) ──────────────────  │
+│  #   M  src/foo.js                                                       │
+│  #   A  src/bar.js                                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Title** is the first line; **body** is everything above the `# ────` separator — both are editable.
+- The read-only section shows every file changed between your branch and the base branch.
+- `<CR>` / `<C-s>` runs `gh pr create` with your title and body.
+- If a PR already exists for the branch the existing one is surfaced instead.
+
+After the PR is created a panel appears:
+
+```
+  PULL REQUEST
+
+  My feature title
+
+  URL: https://github.com/user/repo/pull/42
+
+  ──────────────────────────────────────
+  Status: ready to merge
+
+  <CR> / m  merge PR
+  q         close this panel
+```
+
+| Key | Action |
+|-----|--------|
+| `<CR>` / `m` | Merge the PR (`gh pr merge --merge`) |
+| `<C-p>` | Ask Copilot how to fix merge conflicts (opens advice buffer) |
+| `q` | Close the panel |
+
+**Requirements:** `gh` CLI authenticated (`gh auth login`) + an active GitHub Copilot subscription for `<C-p>`.
 
 ---
 
@@ -121,6 +172,9 @@ let g:git_changes_width = 50
 
 " commit panel height in lines (default 8)
 let g:git_changes_commit_height = 10
+
+" PR creation panel height in lines (default 18)
+let g:git_changes_pr_height = 24
 ```
 
 ### Custom toggle mapping
@@ -168,6 +222,7 @@ A file can appear under both STAGED and CHANGES if it has mixed staged/unstaged 
 |---------|-------------|
 | `:GitChanges` | Toggle the panel |
 | `:GitChangesRefresh` | Re-run `git status` and redraw |
+| `:GitPullRequest` | Open the PR creation panel (works from any buffer) |
 
 The panel auto-refreshes on `BufWritePost` and `ShellCmdPost` while open.
 
