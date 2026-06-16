@@ -368,6 +368,18 @@ def DoCommit()
   endif
 
   echo 'git-changes: committed!'
+  var branch = system('git -C ' .. shellescape(git_root) .. ' rev-parse --abbrev-ref HEAD')->trim()
+  var answer = input('git-changes: push to origin/' .. branch .. '? [y/N] ')
+  redraw
+  if answer =~? '^y'
+    echo 'git-changes: pushing...'
+    var push_out = system('git -C ' .. shellescape(git_root) .. ' push origin ' .. shellescape(branch))
+    if v:shell_error != 0
+      echohl ErrorMsg | echo 'git-changes: push failed — ' .. trim(push_out) | echohl None
+    else
+      echo 'git-changes: pushed!'
+    endif
+  endif
   Close()
 enddef
 
