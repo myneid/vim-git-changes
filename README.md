@@ -23,6 +23,9 @@ Vim9script with no external dependencies beyond `git` itself.
 └─────────────────────┴──────────────────────────────────────┘
 ```
 
+<img width="640" height="441" alt="screen-recording-2026-05-18" src="https://github.com/user-attachments/assets/32bf36b9-fbb4-42e3-a75b-07ff8f8a375d" />
+
+
 ## Requirements
 
 - **Vim 9.0+** (Vim9script — Neovim is not supported)
