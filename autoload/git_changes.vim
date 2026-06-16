@@ -111,6 +111,9 @@ def SetupCommitBuffer()
   inoremap <buffer><nowait> <C-p>  <Esc><ScriptCmd>CopilotMessage()<CR>
   nnoremap <buffer><nowait> <Tab>  <ScriptCmd>win_gotoid(files_winid)<CR>
   nnoremap <buffer><nowait> q      <ScriptCmd>win_gotoid(files_winid)<CR>
+
+  setbufline(commit_bufnr, 1, ['', '# <C-p>  generate commit message with Copilot'])
+  normal! gg
 enddef
 
 def SetupFilesBuffer()
