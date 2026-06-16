@@ -11,7 +11,8 @@ if !has('vim9script')
 endif
 
 command! GitChanges git_changes#Toggle()
-command! GitChangesRefresh git_changes#Refresh()
+command! GitPullRequest git_changes#PullRequest()
+command! GitPullRequestRefresh git_changes#Refresh()
 
 if !hasmapto('<Plug>(GitChangesToggle)')
   nnoremap <silent> <leader>gs <ScriptCmd>git_changes#Toggle()<CR>
